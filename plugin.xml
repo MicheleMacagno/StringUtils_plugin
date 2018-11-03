@@ -9,9 +9,14 @@
             id="SQLFormater.commands.category">
       </category>
       <command
-            name="Formate SQL"
+            name="Format SQL"
             categoryId="SQLFormater.commands.category"
             id="SQLFormater.commands.formateSQLString">
+      </command>
+      <command
+      		name="Format Escaped SQL"
+      		categoryID="SQLFormater.commands.category"
+      		id="SQLFormater.commands.formatEscapedSQLString">
       </command>
       <command
             name="Extract SQL"
@@ -25,6 +30,10 @@
             commandId="SQLFormater.commands.formateSQLString"
             class="org.juke.stringutils.handlers.SrtingUtils">
       </handler>
+      <handler
+            commandId="SQLFormater.commands.formatEscapedSQLString"
+            class="org.juke.stringutils.handlers.SrtingUtils">
+      </handler>
        <handler
             commandId="SQLFormater.commands.showStringContent"
             class="org.juke.stringutils.handlers.SrtingUtils">
@@ -36,6 +45,12 @@
             commandId="SQLFormater.commands.formateSQLString"
             contextId="org.eclipse.ui.contexts.window"
             sequence="M1+8"
+            schemeId="org.eclipse.ui.defaultAcceleratorConfiguration">
+      </key>
+      <key
+            commandId="SQLFormater.commands.formatEscapedSQLString"
+            contextId="org.eclipse.ui.contexts.window"
+            sequence="M1+0"
             schemeId="org.eclipse.ui.defaultAcceleratorConfiguration">
       </key>
        <key
@@ -57,6 +72,16 @@
                   commandId="SQLFormater.commands.formateSQLString"
                   mnemonic="S"
                   id="SQLFormater.menus.formateSQLString">
+            </command>
+         </menu>
+         <menu
+               label="String Utils"
+               mnemonic="M"
+               id="SQLFormater.menus.sampleMenu">
+            <command
+                  commandId="SQLFormater.commands.formatEscapedSQLString"
+                  mnemonic="S"
+                  id="SQLFormater.menus.formatEscapedSQLString">
             </command>
          </menu>
           <menu

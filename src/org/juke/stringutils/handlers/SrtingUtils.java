@@ -19,6 +19,7 @@
  */
 package org.juke.stringutils.handlers;
 
+
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.StringWriter;
@@ -91,6 +92,8 @@ public class SrtingUtils extends AbstractHandler {
 
     private static final String COMMANDS_FORMATE_SQL_STRING = "SQLFormater.commands.formateSQLString";
 
+    private static final String COMMANDS_FORMAT_ESCAPED_SQL_STRING  = "SQLFormater.commands.formatEscapedSQLString";
+    
     private static final String COMMANDS_SHOW_STRING_CONTENT = "SQLFormater.commands.showStringContent";
 
     private static final String SINGL_SPACE = " ";
@@ -102,8 +105,12 @@ public class SrtingUtils extends AbstractHandler {
     private static final String NEW_LINE = "\n";
 
     private static final int FORMATE_SQL_STRING_ACTION = 1;
-
+    
+    private static final int FORMAT_ESCAPED_SQL_STRING_ACTION = 2;
+    
     private static final int SHOW_STRING_CONTETNT_ACTION = 0;
+    
+    private static final int TAB_SIZE = 4;
 
     public SrtingUtils() {
         new StringUtilsPreferencePage().init(PlatformUI.getWorkbench());
@@ -322,6 +329,7 @@ public class SrtingUtils extends AbstractHandler {
         return repeat(text, SINGL_SPACE, count);
     }
 
+    
     /***************************************************************************
      * the command has been executed, so extract extract the needed information
      * from the application context.
@@ -331,7 +339,10 @@ public class SrtingUtils extends AbstractHandler {
             performAction(SHOW_STRING_CONTETNT_ACTION);
         } else if (COMMANDS_FORMATE_SQL_STRING.equalsIgnoreCase(event.getCommand().getId())) {
             performAction(FORMATE_SQL_STRING_ACTION);
+        } else if (COMMANDS_FORMAT_ESCAPED_SQL_STRING.equalsIgnoreCase(event.getCommand().getId())) {
+        	performAction(FORMAT_ESCAPED_SQL_STRING_ACTION);
         }
+        
         return null;
     }
 
@@ -437,7 +448,7 @@ public class SrtingUtils extends AbstractHandler {
      * @throws BadLocationException
      */
     public void proceedSelectedString(IDocument doc, TextSelection selection, int action) throws BadLocationException {
-        int lineNum = selection.getStartLine();
+    	int lineNum = selection.getStartLine();
         int lineStart = findStartlineNum(doc, lineNum);
         int lineEnd = findEndlineNum(doc, lineNum);
         if (lineStart == INVALID_LINE_NUM || lineEnd == INVALID_LINE_NUM || lineStart > lineEnd) {
@@ -445,11 +456,11 @@ public class SrtingUtils extends AbstractHandler {
         }
         int startLineOffset = doc.getLineOffset(lineStart);
         int endLineOffset = doc.getLineOffset(lineEnd);
-        String lineString = doc.get(startLineOffset, endLineOffset - startLineOffset);
-        int startOfStringOffset = startLineOffset + lineString.indexOf(QUOTE);
-        int endOfStringLength = lineString.lastIndexOf(QUOTE) + 1 - lineString.indexOf(QUOTE);
+        String lineStringRaw = doc.get(startLineOffset, endLineOffset - startLineOffset);
+        int startOfStringOffset = startLineOffset + lineStringRaw.indexOf(QUOTE);
+        int endOfStringLength = lineStringRaw.lastIndexOf(QUOTE) + 1 - lineStringRaw.indexOf(QUOTE);
         Map<String, String> variableMap = new HashMap<String, String>();
-        lineString = lineString.replaceAll(LINE_REGEXP, EMPTY_STRING);
+        String lineString = lineStringRaw.replaceAll(LINE_REGEXP, EMPTY_STRING);
         Matcher matcher = Pattern.compile(WHITESPACE_REGEXP).matcher(lineString);
         while (matcher.find()) {
             String variableKey = getVariableKey(variableMap.size(), matcher.group());
@@ -465,7 +476,10 @@ public class SrtingUtils extends AbstractHandler {
             if (action == FORMATE_SQL_STRING_ACTION) {
                 fornatSqkString(lineString, startOfStringOffset, endOfStringLength, variableMap, formatedString);
 
-            } else if (action == SHOW_STRING_CONTETNT_ACTION) {
+            }else if(action == FORMAT_ESCAPED_SQL_STRING_ACTION){
+            	formatEscapedSQLString(lineStringRaw,startOfStringOffset,endOfStringLength,variableMap,formatedString);
+            }
+            else if (action == SHOW_STRING_CONTETNT_ACTION) {
                 showStringContent(variableMap, stringMatcher, formatedString);
             }
         }
@@ -493,6 +507,57 @@ public class SrtingUtils extends AbstractHandler {
             replaceTextInEditor(startOfStringOffset, endOfStringLength, result);
         }
     }
+    
+    private void formatEscapedSQLString(String lineString, int startOfStringOffset, int endOfStringLength, Map<String, String> variableMap, String formatedString) {
+    	String result = getEscapedString(lineString);
+    	replaceTextInEditor(startOfStringOffset, endOfStringLength, result);
+    }
+    
+    private String getEscapedString(String lineString){
+    	//String blank = "([ ]|(\\t))*";
+    	Pattern pattern = Pattern.compile("([ ]|(\\t))*" +".*[\"].*[\"].*");
+    	String [] lines = lineString.split("\n");
+    	String [] linesConverted = new String[lines.length];
+    	int nTab=0;
+    	int maxLength = TAB_SIZE;
+    	for(int i=0; i<lines.length;i++){
+    		if(pattern.matcher(lines[i]).find()){
+    			String[] splitted = lines[i].split("\"");
+    			nTab = splitted[0].replaceAll("\\t", " ").length() > nTab ? splitted[0].length() : nTab;
+				linesConverted[i] = 
+    					splitted[1]
+    							.replaceAll("\\\\r","")
+    							.replaceAll("\\\\n", "");
+    			maxLength = (linesConverted[i].length() > maxLength ? linesConverted[i].length() : maxLength);
+    		}else{
+    			lines[i] = lines[i].replaceAll("\\t"," ");
+    			linesConverted[i] = null;
+    		}
+    	}
+    	String tabs = "";
+    	for(int j=0;j<nTab; j++){
+    		tabs = tabs + "\t";
+    	}
+    	
+    	StringBuilder returnValue = new StringBuilder("\n");
+    	maxLength += TAB_SIZE;
+    	for(int i=0;i<lines.length;i++){
+    		if(linesConverted[i]!=null){
+    			StringBuilder sbTabs = new StringBuilder();
+    			int c = linesConverted[i].length();
+    			while(c<=maxLength)
+    			{
+    				sbTabs.append("\t");
+    				c+=TAB_SIZE;
+    			}
+    			linesConverted[i] = tabs + "\" " + linesConverted[i] + sbTabs.toString() +"\\r\\n\" +\n";
+    			returnValue.append(linesConverted[i]);
+    		}else{
+    			//do nothing
+    		}
+    	}
+    	return returnValue.toString();
+    }
 
     /***************************************************************************
      * Performs given action on selected in editor string.<br/>
@@ -509,7 +574,6 @@ public class SrtingUtils extends AbstractHandler {
      * @see BasicFormatterImpl
      */
     private void performAction(int action) {
-
         try {
             IEditorPart part = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage().getActiveEditor();
             if (part instanceof ITextEditor) {
